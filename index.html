@@ -453,6 +453,90 @@
             opacity: 0;
         }
         
+        /* 空状态样式 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .empty-state-icon {
+            font-size: 120px;
+            margin-bottom: 30px;
+            opacity: 0.3;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .empty-state-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .empty-state-subtitle {
+            font-size: 18px;
+            color: #718096;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .empty-state-steps {
+            background: rgba(78, 205, 196, 0.1);
+            border: 2px dashed #4ECDC4;
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .empty-state-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #4a5568;
+        }
+        
+        .empty-state-step:last-child {
+            margin-bottom: 0;
+        }
+        
+        .step-number {
+            background: linear-gradient(45deg, #4ECDC4, #45B7AF);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-text {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .empty-state-hint {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #a0aec0;
+            font-style: italic;
+        }
+
         /* 响应式设计 */
         @media (max-width: 768px) {
             .container {
@@ -472,6 +556,22 @@
             
             .member-name {
                 font-size: 24px;
+            }
+            
+            .empty-state-icon {
+                font-size: 80px;
+            }
+            
+            .empty-state-title {
+                font-size: 24px;
+            }
+            
+            .empty-state-subtitle {
+                font-size: 16px;
+            }
+            
+            .empty-state-steps {
+                padding: 20px;
             }
         }
     </style>
@@ -545,63 +645,96 @@
             </div>
             
             <!-- 右侧Roll区域 -->
-            <div class="roll-panel" v-if="configSaved">
-                <div class="roll-area">
-                    <h3 class="roll-title">🎯 候选成员</h3>
-                    
-                    <div class="members-grid">
-                        <div 
-                            v-for="member in memberList" 
-                            :key="member"
-                            class="member-card"
-                            :class="getMemberCardClass(member)"
+            <div class="roll-panel">
+                <!-- 配置已保存状态 -->
+                <div v-if="configSaved">
+                    <div class="roll-area">
+                        <h3 class="roll-title">🎯 候选成员</h3>
+                        
+                        <div class="members-grid">
+                            <div 
+                                v-for="member in memberList" 
+                                :key="member"
+                                class="member-card"
+                                :class="getMemberCardClass(member)"
+                            >
+                                {{ member }}
+                            </div>
+                        </div>
+                        
+                        <button 
+                            @click="toggleRoll" 
+                            class="roll-button"
+                            :class="{ rolling: isRolling }"
+                            :disabled="allMembersAssigned"
                         >
-                            {{ member }}
+                            {{ getRollButtonText() }}
+                        </button>
+                        
+                        <div v-if="!config.oneClickAssign && availableMembers.length > 0" class="progress-info">
+                            剩余成员: {{ availableMembers.length }} / {{ memberList.length }}
                         </div>
                     </div>
-                    
-                    <button 
-                        @click="toggleRoll" 
-                        class="roll-button"
-                        :class="{ rolling: isRolling }"
-                        :disabled="allMembersAssigned"
-                    >
-                        {{ getRollButtonText() }}
-                    </button>
-                    
-                    <div v-if="!config.oneClickAssign && availableMembers.length > 0" class="progress-info">
-                        剩余成员: {{ availableMembers.length }} / {{ memberList.length }}
+                
+                    <!-- 结果显示区域 -->
+                    <div class="results" v-if="hasResults">
+                        <h3 class="results-title">{{ config.groupMode ? '🏆 分组结果' : '📋 选中顺序' }}</h3>
+                        
+                        <!-- 分组模式结果 -->
+                        <div v-if="config.groupMode" class="groups">
+                            <div v-for="(group, index) in groups" :key="index" class="group">
+                                <div class="group-members">
+                                    分组{{ index + 1 }}：
+                                    <span v-for="member in group" :key="member" class="group-member">
+                                        {{ member }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 排序模式结果 -->
+                        <div v-else class="selected-list">
+                            <ul class="selected-members">
+                                <li 
+                                    v-for="(member, index) in selectedMembers" 
+                                    :key="member" 
+                                    class="selected-member"
+                                    :data-index="index + 1"
+                                >
+                                    {{ member }}
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- 结果显示区域 -->
-                <div class="results" v-if="hasResults">
-                    <h3 class="results-title">{{ config.groupMode ? '🏆 分组结果' : '📋 选中顺序' }}</h3>
+                <!-- 配置未保存的空状态 -->
+                <div v-else class="empty-state">
+                    <div class="empty-state-icon">🎲</div>
+                    <h3 class="empty-state-title">准备开始组队</h3>
+                    <p class="empty-state-subtitle">请先完成左侧的配置设置，然后开始随机组队吧！</p>
                     
-                    <!-- 分组模式结果 -->
-                    <div v-if="config.groupMode" class="groups">
-                        <div v-for="(group, index) in groups" :key="index" class="group">
-                            <div class="group-members">
-                                分组{{ index + 1 }}：
-                                <span v-for="member in group" :key="member" class="group-member">
-                                    {{ member }}
-                                </span>
-                            </div>
+                    <div class="empty-state-steps">
+                        <div class="empty-state-step">
+                            <div class="step-number">1</div>
+                            <div class="step-text">输入候选成员名单</div>
                         </div>
-                    </div>
-                    
-                    <!-- 排序模式结果 -->
-                    <div v-else class="selected-list">
-                        <ul class="selected-members">
-                            <li 
-                                v-for="(member, index) in selectedMembers" 
-                                :key="member" 
-                                class="selected-member"
-                                :data-index="index + 1"
-                            >
-                                {{ member }}
-                            </li>
-                        </ul>
+                        <div class="empty-state-step">
+                            <div class="step-number">2</div>
+                            <div class="step-text">选择组队模式（一键分配/逐个选择）</div>
+                        </div>
+                        <div class="empty-state-step">
+                            <div class="step-number">3</div>
+                            <div class="step-text">如需分组，设置分组数量</div>
+                        </div>
+                        <div class="empty-state-step">
+                            <div class="step-number">4</div>
+                            <div class="step-text">点击"保存配置"开始使用</div>
+                        </div>
+                        
+                        <div class="empty-state-hint">
+                            💡 配置保存后，您就可以在这里进行随机组队了
+                        </div>
                     </div>
                 </div>
             </div>
