@@ -649,7 +649,7 @@
                 <!-- 配置已保存状态 -->
                 <div v-if="configSaved">
                     <div class="roll-area">
-                        <h3 class="roll-title">🎯 候选成员</h3>
+                        <h3 class="roll-title">🎯 候选成员({{memberList.length}})</h3>
                         
                         <div class="members-grid">
                             <div 
@@ -774,6 +774,7 @@
                 },
                 configSaved: false,
                 isRolling: false,
+                isAnimating: false, // 是否正在执行缓动动画
                 currentRollingMember: '',
                 selectedMembers: [],
                 groups: [],
@@ -879,7 +880,11 @@
                 // 切换Roll状态
                 toggleRoll() {
                     if (this.allMembersAssigned) return;
-                    
+
+                    // 如果正在动画中,阻止任何操作
+                    if (this.isAnimating) return;
+
+                    // 如果正在 rolling,停止 roll
                     if (this.isRolling) {
                         this.stopRoll();
                     } else {
@@ -910,38 +915,41 @@
                 // 停止Roll
                 stopRoll() {
                     if (!this.isRolling) return;
-                    
+
+                    // 标记正在动画中,防止重复点击
+                    this.isAnimating = true;
+
                     clearInterval(this.rollInterval);
-                    
+
                     // 使用 easeOutCubic 缓动动画
                     const startTime = Date.now();
                     const duration = 2000; // 2秒缓动时间
                     const initialSpeed = 50; // 初始速度
                     const finalSpeed = 500; // 最终速度
-                    
+
                     const animate = () => {
                         const elapsed = Date.now() - startTime;
                         const progress = Math.min(elapsed / duration, 1);
-                        
+
                         // 使用 easeOutCubic 计算当前进度
                         const easedProgress = this.easeOutCubic(progress);
-                        
+
                         // 根据缓动进度计算当前速度
                         const currentSpeed = initialSpeed + (finalSpeed - initialSpeed) * easedProgress;
-                        
+
                         // 继续随机选择成员
                         const randomIndex = Math.floor(Math.random() * this.availableMembers.length);
                         this.currentRollingMember = this.availableMembers[randomIndex];
-                        
+
                         if (progress < 1) {
                             // 使用当前速度设置下次动画
                             setTimeout(animate, currentSpeed);
                         } else {
-                            // 动画结束，完成Roll
+                            // 动画结束,完成Roll
                             this.finalizeRoll();
                         }
                     };
-                    
+
                     // 开始缓动动画
                     animate();
                 },
@@ -950,7 +958,8 @@
                 finalizeRoll() {
                     clearInterval(this.rollInterval);
                     this.isRolling = false;
-                    
+                    this.isAnimating = false; // 动画完成,解除锁定
+
                     if (this.config.oneClickAssign) {
                         // 一键分配所有成员
                         this.assignAllMembers();
@@ -959,7 +968,7 @@
                         // 单次分配 - 使用当前高亮的成员作为最终选中的成员
                         this.assignSpecificMember(this.currentRollingMember);
                     }
-                    
+
                     this.saveToStorage();
                 },
                 
@@ -1016,17 +1025,18 @@
                     this.showResetModal = false;
                     this.configSaved = false;
                     this.isRolling = false;
+                    this.isAnimating = false; // 重置动画标志
                     this.currentRollingMember = '';
                     this.selectedMembers = [];
                     this.groups = [];
                     this.availableMembers = [];
                     this.memberList = [];
-                    
+
                     if (this.rollInterval) {
                         clearInterval(this.rollInterval);
                         this.rollInterval = null;
                     }
-                    
+
                     // 清除存储
                     localStorage.removeItem(this.storageKey);
                 },
